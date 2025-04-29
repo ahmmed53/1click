@@ -1,0 +1,123 @@
+<!DOCTYPE html><html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Binary Signal - Real Time</title>
+    <style>
+        body { background-color: #0d0d0d; color: #00ff99; font-family: Arial, sans-serif; text-align: center; padding: 30px; }
+        .signal { margin-top: 30px; font-size: 24px; font-weight: bold; }
+        select, button { margin: 10px; padding: 10px; font-size: 16px; background: #333; color: #fff; border-radius: 5px; }
+    </style>
+</head>
+<body><h1>Real Time Binary Signal</h1>
+
+<label for="pair">Select Pair:</label>
+<select id="pair">
+    <option value="EUR/USD">EUR/USD</option>
+    <option value="GBP/USD">GBP/USD</option>
+    <option value="USD/JPY">USD/JPY</option>
+    <option value="AUD/USD">AUD/USD</option>
+</select>
+
+<br>
+
+<label for="timeframe">Select Timeframe:</label>
+<select id="timeframe">
+    <option value="1min">1 Minute</option>
+    <option value="5min">5 Minutes</option>
+    <option value="10min">10 Minutes</option>
+</select>
+
+<br>
+
+<button onclick="generateSignal()">Get Signal</button>
+
+<div id="signalOutput" class="signal"></div>
+
+<script>
+    const apiKey = 'demo'; // 121afe77236a43e4a626595975df7729
+
+    async function generateSignal() {
+        const pair = document.getElementById('pair').value;
+        const timeframe = document.getElementById('timeframe').value;
+        const symbol = pair.replace("/", "");
+
+        const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${timeframe}&outputsize=30&apikey=${apiKey}`;
+
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (!data.values) {
+                alert('Data Load Error! Check API Key or Pair name.');
+                return;
+            }
+
+            const prices = data.values.map(item => parseFloat(item.close)).reverse();
+            const lastPrice = prices[prices.length - 1];
+
+            const rsi = calculateRSI(prices);
+            const macd = calculateMACD(prices);
+            const ema5 = calculateEMA(prices, 5);
+            const ema20 = calculateEMA(prices, 20);
+            const stochastic = calculateStochastic(prices);
+
+            let signalText = "";
+
+            if (rsi < 30 && macd > 0 && lastPrice > ema5 && lastPrice > ema20 && stochastic < 20) {
+                signalText = `STRONG BUY\nENTRY PRICE: ${lastPrice}`;
+                alert("STRONG BUY Signal!");
+            } 
+            else if (rsi > 70 && macd < 0 && lastPrice < ema5 && lastPrice < ema20 && stochastic > 80) {
+                signalText = `STRONG SELL\nENTRY PRICE: ${lastPrice}`;
+                alert("STRONG SELL Signal!");
+            } 
+            else {
+                signalText = "No Clear Signal\nWait for Confirmation.";
+            }
+
+            document.getElementById('signalOutput').innerText = `PAIR: ${pair}\nTIMEFRAME: ${timeframe}\n${signalText}`;
+        } 
+        catch (error) {
+            console.error(error);
+            document.getElementById('signalOutput').innerText = "Error fetching data!";
+        }
+    }
+
+    function calculateRSI(prices) {
+        let gains = 0, losses = 0;
+        for (let i = 1; i < prices.length; i++) {
+            let diff = prices[i] - prices[i-1];
+            if (diff >= 0) gains += diff;
+            else losses -= diff;
+        }
+        let avgGain = gains / prices.length;
+        let avgLoss = losses / prices.length;
+        let rs = avgGain / avgLoss;
+        return 100 - (100 / (1 + rs));
+    }
+
+    function calculateEMA(prices, period) {
+        let k = 2 / (period + 1);
+        let emaArray = [prices[0]];
+        for (let i = 1; i < prices.length; i++) {
+            emaArray.push(prices[i] * k + emaArray[i-1] * (1 - k));
+        }
+        return emaArray.pop();
+    }
+
+    function calculateMACD(prices) {
+        let ema12 = calculateEMA(prices, 12);
+        let ema26 = calculateEMA(prices, 26);
+        return ema12 - ema26;
+    }
+
+    function calculateStochastic(prices) {
+        const high = Math.max(...prices);
+        const low = Math.min(...prices);
+        const close = prices[prices.length - 1];
+        return ((close - low) / (high - low)) * 100;
+    }
+</script>
+
+</body>
+</html>
